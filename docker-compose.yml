@@ -1,0 +1,103 @@
+version: "3.4"
+
+# networks:
+#   mongos:
+#     external: true
+
+services:
+
+  backend:
+    build: docker/backend
+    volumes:
+      - ./src/backend:/workspace
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
+    container_name: es01
+    environment:
+      - discovery.type=single-node
+      # - node.name=es01
+      # - cluster.name=es-docker-cluster
+      # - discovery.seed_hosts=es02,es03
+      # - cluster.initial_master_nodes=es01
+      # - bootstrap.memory_lock=true
+      # - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    # ulimits:
+    #   memlock:
+    #     soft: -1
+    #     hard: -1
+    volumes:
+      - ./db_storage/elastic_search/data0:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
+    # networks:
+    #   - elastic
+
+  # es02:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
+  #   container_name: es02
+  #   environment:
+  #     - node.name=es02
+  #     - cluster.name=es-docker-cluster
+  #     - discovery.seed_hosts=es01,es03
+  #     - cluster.initial_master_nodes=es01,es02,es03
+  #     - bootstrap.memory_lock=true
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #   volumes:
+  #     - data02:/usr/share/elasticsearch/data
+  #   networks:
+  #     - elastic
+  # es03:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
+  #   container_name: es03
+  #   environment:
+  #     - node.name=es03
+  #     - cluster.name=es-docker-cluster
+  #     - discovery.seed_hosts=es01,es02
+  #     - cluster.initial_master_nodes=es01,es02,es03
+  #     - bootstrap.memory_lock=true
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #   volumes:
+  #     - data03:/usr/share/elasticsearch/data
+  #   networks:
+  #     - elastic
+
+# volumes:
+#   data01:
+#     driver: local
+#   data02:
+#     driver: local
+#   data03:
+#     driver: local
+
+
+  ftp:
+    image: stilliard/pure-ftpd:hardened
+    restart: always
+    volumes:
+      - ./db_storage/ftp:/home/ftpusers
+      # - ./db_storage/pure-ftpd:/etc/pure-ftpd
+    ports:
+      - "10021:21"
+      - "30000-30009:30000-30009"
+    environment:
+      PUBLICHOST: "202.120.44.152"
+      FTP_USER_NAME: "ftpusers"
+      FTP_USER_PASS: "ftpusers"
+      FTP_USER_HOME: "/home/ftpusers"
+      FTP_PASSIVE_PORTS: "30000:30009"
+      FTP_MAX_CONNECTIONS: 10
+
+# networks:
+#   elastic:
+#     driver: bridge
+

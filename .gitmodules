@@ -1,0 +1,3 @@
+[submodule "src/backend/util"]
+	path = src/backend/util
+	url = git@github.com:dailing/util.git

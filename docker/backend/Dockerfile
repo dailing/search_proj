@@ -25,6 +25,7 @@ RUN wget https://www.python.org/ftp/python/3.7.5/Python-3.7.5.tgz -O python.tgz 
 RUN pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
 RUN pip3 install jupyterlab flask peewee psycopg2 flask-restful requests 
+RUN pip3 install elasticsearch
 
 RUN useradd -m -U d
 USER d

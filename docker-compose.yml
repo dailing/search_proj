@@ -10,6 +10,12 @@ services:
     build: docker/backend
     volumes:
       - ./src/backend:/workspace
+    command: "flask run -h 0.0.0.0"
+    environment:
+       FLASK_APP: main.py
+       FLASK_ENV: development
+    ports:
+      - 25088:5000
 
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2

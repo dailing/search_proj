@@ -13,90 +13,46 @@
 
 
 <div id="app">
-    <div class="sticky-top bg-light">
-        <div class="container">
-            <div class='row border'>
-                <div class="dropdown col-3">
-                    <button class="btn btn-secondary dropdown-toggle" 
-                            type="button" id="dropdownMenuButton"
-                            data-toggle="dropdown" aria-haspopup="true"
-                            aria-expanded="false">
-                        {{current_session.session_name}}
-                    </button>
-                    <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
-                        <a 
-                            class="dropdown-item" href="#" 
-                            v-for="session in sessions"
-                            v-on:click="current_session=session">
-                                {{session.session_name}}
-                        </a>
-                    </div>
-                </div>
-                <div>
-                    <button 
-                        class="btn btn-primary"
-                        v-on:click="show_existing_images=!show_existing_images">
-                        {{show_existing_images?"existing":"new"}}
-                    </button>
-                </div>
-                <div class="input-group col-6">
-                    <input type="text" class="form-control" placeholder="session name" 
-                        aria-label="session name" v-model='new_session_name'>
-                    <div class="input-group-append">
-                        <button class="btn btn-primary"
-                                v-on:click="add_session()" >
-                            add
-                        </button>
-                    </div>
-                </div>
-            </div>
-            <div class="row border">
-                <div class="col-12">
-                    <canvas
-                        id="canvas" width="400" height="400"
-                        v-on:keydown:enter='remove_selected()'
-                        style="background-color:#590b8d">
-                    </canvas>
-                </div>
-                <div class="col-2">
-                    <input 
-                        type="button"
-                        class="btn btn-primary"
-                        value="submit"
-                        v-on:click=submit_anno()>
-                </div>
-                <div class="col-2">
-                    <input 
-                        type="button"
-                        class="btn btn-primary"
-                        v-bind:value="adding_box==true ? 'adding': 'selecting'"
-                        v-on:click='adding_box=!adding_box'>
-                </div>
-            </div>
-            <div class="row">
-                <label class="col-3 col-form-label">upload images</label>
-                <input type="file"
-                        class="form-control-file col-3"
-                        accept="image/*"
-                        capture="camera"
-                        ref="new_file_element"
-                        v-on:change="file_to_upload = $event.target.files || $event.dataTransfer.files"
-                        multiple webkitdirectory/>
-                <button class="col-3 btn btn-primary" v-on:click='submit()'>
-                    submit
-                </button>
-            </div>
-        </div>
-    </div>
+    
+    <hr>
 
     <div class="container">
-        <div class="row">
-            <div class="card" style="width: 18rem;" v-for="(record) in images_this_page">
-                <img v-bind:src="record.url" class="card-img-top" alt="..." v-on:click='handleNewImage(record);'>
-                <!-- <div class="card-body">
-                    <a class="card-text" v-bind:href="record.url">original Image</a>
+            <div class="input-group mb-3">
+                <input type="text" 
+                    class="form-control"
+                    placeholder="Recipient's username"
+                    aria-label="Recipient's username"
+                    aria-describedby="basic-addon2">
+                <div class="input-group-append">
+                    <span class="input-group-text" id="basic-addon2">search</span>
                 </div>
-                <a class="btn btn-primary" v-on:click='handleNewImage(record)'>annotate</a> -->
+            </div>
+        <div class="row">
+            <table class="table">
+                <tr>
+                    <th>title</th>
+                    <th>author</th>
+                    <th>journal</th>
+                    <th>field</th>
+                    <th>institute</th>
+                    <th>publish_time</th>
+                    <th>funds</th>
+                    <th>publisher</th>
+                    <th>added_time</th>
+                </tr>
+                <tr v-for="(record) in papers">
+                    <td>{{record.title}}</td>
+                    <td>{{record.author}}</td>
+                    <td>{{record.journal}}</td>
+                    <td>{{record.field}}</td>
+                    <td>{{record.institute}}</td>
+                    <td>{{record.publish_time}}</td>
+                    <td>{{record.funds}}</td>
+                    <td>{{record.publisher}}</td>
+                    <td>{{record.added_time}}</td>
+                </tr>
+            </table>
+            <div class="card" style="width: 18rem;" v-for="(record) in images_this_page">
             </div>
         </div>
         <div>
@@ -111,6 +67,64 @@
                 v-on:click="current_page=Math.min(current_page+1,num_page)">
                 next
             </button>
+        </div>
+    </div>
+
+    <hr>
+
+    <div class="container">
+        <div class="row">
+
+            <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="basic-addon1">title</span>
+                    </div>
+                    <input type="text" class="form-control" placeholder="title" aria-label="Username" aria-describedby="basic-addon1"/>
+            </div>
+            <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="basic-addon1">author</span>
+                    </div>
+                    <input type="text" class="form-control" placeholder="author" aria-label="Username" aria-describedby="basic-addon1"/>
+            </div>
+            <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="basic-addon1">journal</span>
+                    </div>
+                    <input type="text" class="form-control" placeholder="journal" aria-label="Username" aria-describedby="basic-addon1"/>
+            </div>
+            <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="basic-addon1">field</span>
+                    </div>
+                    <input type="text" class="form-control" placeholder="field" aria-label="Username" aria-describedby="basic-addon1"/>
+            </div>
+            <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="basic-addon1">institute</span>
+                    </div>
+                    <input type="text" class="form-control" placeholder="institute" aria-label="Username" aria-describedby="basic-addon1"/>
+            </div>
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <span class="input-group-text">abstract</span>
+                </div>
+                <textarea class="form-control" aria-label="With textarea"></textarea>
+            </div>
+
+            <div class="input-group mb-3">
+                <div class="input-group-prepend">
+                    <span class="input-group-text" id="inputGroupFileAddon01">Upload</span>
+                </div>
+                <div class="custom-file">
+                    <input type="file" class="custom-file-input" id="inputGroupFile01" aria-describedby="inputGroupFileAddon01">
+                    <label class="custom-file-label" for="inputGroupFile01">Choose file</label>
+                </div>
+            </div>
+
+            <div class="input-group mb-3">
+                <input type="button" class="btn btn-secondary" value="upload">
+            </div>
         </div>
     </div>
 </div>

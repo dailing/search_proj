@@ -21,6 +21,7 @@ from peewee import fn, DoesNotExist
 import time
 from elasticsearch import Elasticsearch
 from playhouse.shortcuts import model_to_dict
+import six
 
 
 logger = get_logger('search project learning')
@@ -55,7 +56,7 @@ def response_json(func):
 			return result
 		if isinstance(result, Model):
 			result = model_to_dict(result)
-		if isinstance(result, dict):
+		if isinstance(result, dict) or isinstance(result, list):
 			result = json.dumps(result, default=json_encoder_default)
 		resp = make_response(result, 200)
 		resp.headers['Content-Type'] = 'application/json'
@@ -69,26 +70,42 @@ class BaseModel(Model):
 		database = psql_db
 
 
-class PaperRecord(BaseModel):
-	title = TextField()
-	author = ArrayField(TextField, null=True)
-	journal = TextField()
-	field = TextField()
-	institute = TextField()
-	publish_time = DateField()
-	funds = ArrayField(TextField)
-	publisher = TextField()
-	added_time = DateTimeField(default=datetime.datetime.now)
+class RestfulCRUD(type):
+	def __new__(cls, clsname, superclasses, attributedict, model=None):
+		if model is None:
+			raise Exception('Please define model')
+		# superclasses = superclasses + (Resource, )
+		@response_json
+		def get(self, record_id):
+			try:
+				result = model.get_by_id(record_id)
+			except DoesNotExist as e:
+				abort(400, "no such record")
+			return result
 
+		@response_json
+		def put(self, record_id):
+			field = request.json
+			if field is None:
+				abort(300, "request field error")
+			logger.info(field)
+			result = model.update(field).where(model.id == record_id).execute()
+			return "OK"
 
-class PaperRecordResourse(Resource):
-	
+		attributedict.update(dict(
+			get=get,
+			put=put
+		))
+		return type.__new__(cls, clsname, superclasses, attributedict)
+
+class CRUD(Resource):
+	def __init__(self, model=None):
+		self.model = model
+
 	@response_json
 	def get(self, record_id):
-		# logger.info(args)
-		# logger.info(kwargs)
 		try:
-			result = PaperRecord.get_by_id(record_id)
+			result = self.model.get_by_id(record_id)
 		except DoesNotExist as e:
 			abort(400, "no such record")
 		return result
@@ -99,8 +116,21 @@ class PaperRecordResourse(Resource):
 		if field is None:
 			abort(300, "request field error")
 		logger.info(field)
-		result = PaperRecord.update(field).where(PaperRecord.id == record_id).execute()
+		result = self.model.update(field).where(self.model.id == record_id).execute()
+		logger.info(result)
 		return "OK"
+
+
+class PaperRecord(BaseModel):
+	title = TextField()
+	author = ArrayField(TextField, null=True)
+	journal = TextField()
+	field = TextField()
+	institute = TextField()
+	publish_time = DateField()
+	funds = ArrayField(TextField)
+	publisher = TextField()
+	added_time = DateTimeField(default=datetime.datetime.now)
 
 
 class PaperRecordList(Resource):
@@ -126,7 +156,9 @@ except Exception as e:
 	logger.error(e)
 
 try:
-	api.add_resource(PaperRecordResourse, '/api/paper_record/<int:record_id>')
+	api.add_resource(
+		CRUD, '/api/paper_record/<int:record_id>', 
+		resource_class_kwargs=dict(model=PaperRecord))
 	api.add_resource(PaperRecordList, '/api/paper_list')
 except Exception as e:
 	logger.error(e)
@@ -175,4 +207,4 @@ def serve_imageLength():
 	return dict(length=length)
 
 if __name__ == "__main__":
-	pass
+	app.run(host='0.0.0.0')

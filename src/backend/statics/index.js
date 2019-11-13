@@ -158,8 +158,16 @@ var app = new Vue({
         new_session_name: null,
 
         show_existing_images: false,
+        papers:[],
     },
     methods: {
+        get_papers: function(){
+            Vue.http.get('/api/paper_list', {
+            }).then(response => {
+                console.log(response.data);
+                this.papers = response.data
+            })
+        },
         remove_selected: function(){
             console.info('delete box');
             if (this.selected_box < 0) return;
@@ -407,6 +415,7 @@ var app = new Vue({
         //     app._keyboard_event(event);
         // }, false);
         // this.update_session();
+        this.get_papers();
         console.log('init!')
     }
 });

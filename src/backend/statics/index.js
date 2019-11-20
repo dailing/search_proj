@@ -27,6 +27,7 @@ var app = new Vue({
 
         show_existing_images: false,
         papers: [],
+        paper_info: {},
     },
     methods: {
         get_papers: function() {
@@ -59,6 +60,16 @@ var app = new Vue({
             }).then(response => {
                 console.log(response.data);
                 this.update_session();
+            })
+        },
+        search: function() {
+            console.log('search');
+            Vue.http.post(
+                "/api/search",
+                this.paper_info.title,
+            ).then(response => {
+                console.log(response.data);
+                this.paper_info = response.data;
             })
         },
         _add_boxes: function(box_xywh) {

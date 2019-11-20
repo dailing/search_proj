@@ -15,6 +15,18 @@ services:
     ports:
       - 25088:5000
 
+
+  test:
+    build: docker/backend
+    volumes:
+      - ./test:/workspace
+    depends_on:
+      - search
+      - db
+    command: "pytest"
+    environment:
+       url: http://backend:5000
+
   search:
     build: docker/backend
     volumes:

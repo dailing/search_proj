@@ -61,16 +61,23 @@ class HelloRPC(object):
             print(self.driver.current_url)
         except NoSuchElementException as e:
             pass
-        quot = self.driver.find_element_by_class_name('paper_q')
-        quot.click()
-        print(quot.text)
-        citi = WebDriverWait(self.driver, timeout=3).until(lambda d: d.find_element_by_class_name('sc_quote_citi'))
-        citi = citi.find_element_by_link_text('BibTeX')
-        bib_tex_file_url = citi.get_property('href')
-        bib_tex = requests.get(bib_tex_file_url).text
-        bib_info = parse_bib(bib_tex)
-        if 'author' in bib_info:
-            bib_info['author'] = bib_info['author'].replace(' and ', '; ')
+        try:
+            quot = self.driver.find_element_by_class_name('paper_q')
+            quot.click()
+            logger.info(quot.text)
+        except Exception as e:
+            logger.error(e, exc_info=e)
+            logger.info(self.driver.text)
+        try:
+            citi = WebDriverWait(self.driver, timeout=3).until(lambda d: d.find_element_by_class_name('sc_quote_citi'))
+            citi = citi.find_element_by_link_text('BibTeX')
+            bib_tex_file_url = citi.get_property('href')
+            bib_tex = requests.get(bib_tex_file_url).text
+            bib_info = parse_bib(bib_tex)
+            if 'author' in bib_info:
+                bib_info['author'] = bib_info['author'].replace(' and ', '; ')
+        except Exception as e:
+            logger.error(e, exc_info=e)
         
         bib_info['abstract'] = get_info(self.driver, 'abstract_wr', 'abstract')
         bib_info['keyword']  = get_info(self.driver, 'kw_main', 'kw_wr')

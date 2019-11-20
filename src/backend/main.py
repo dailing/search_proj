@@ -1,4 +1,3 @@
-
 from flask import Flask, request, make_response, redirect, abort, Response
 from flask_restful import Resource, Api
 import os
@@ -24,12 +23,12 @@ import math
 import zerorpc
 
 
-
 logger = get_logger('search project learning')
 
 
 app = Flask(__name__, static_folder='statics', static_url_path='/static')
 api = Api(app)
+app.config['MAX_CONTENT_LENGTH'] = 256 * 1024 * 1024
 es = Elasticsearch(['es01:9200'])
 psql_db = DatabaseProxy()
 
@@ -173,7 +172,109 @@ class PaperRecord(BaseModel):
 	funds = ArrayField(TextField)
 	publisher = TextField()
 	checked = BooleanField(default=False)
-	added_time = DateTimeField(default=datetime.datetime.now)
+	created = DateTimeField(default=datetime.datetime.now)
+	modified = DateTimeField(default=datetime.datetime.now)
+	
+	def save(self, *args, **kwargs):
+		self.modified = datetime.datetime.now()
+		return super(PaperRecord, self).save(*args, **kwargs)
+
+
+class Folder(BaseModel):
+	name = TextField()
+	created = DateTimeField(default=datetime.datetime.now)
+	parent_id = IntegerField(default=0)
+	modified = DateTimeField(default=datetime.datetime.now)
+	
+	def save(self, *args, **kwargs):
+		self.modified = datetime.datetime.now()
+		return super(Folder, self).save(*args, **kwargs)
+
+
+class File(BaseModel):
+	name = TextField()
+	created = DateTimeField()
+	payload = BlobField()
+	md5 = TextField()
+	parent_id = IntegerField()
+	modified = DateTimeField(default=datetime.datetime.now)
+	
+	def save(self, *args, **kwargs):
+		self.modified = datetime.datetime.now()
+		return super(File, self).save(*args, **kwargs)
+
+
+class FSModel():
+
+	def init_fs():
+		if Folder.select().where(Folder.parent_id==0).count() < 1:
+			Folder.create(
+				name=root,
+				parent_id=0,
+			)
+
+	def __init__(self, path="/"):
+		self.current_path = path
+		self.current_node = self._root()
+		self.cd(path)
+
+	def _root(self):
+		return Folder.select().where(Folder.parent_id==0).get()
+
+	def _get_folder_record(self, path):
+		node = self.current_node
+		if path.startswith('/'):
+			node = self._root()
+		for f in path.split('/'):
+			if f == ".":
+				pass
+			elif f == '..':
+				if node.parent_id == 0:
+					return None
+				else:
+					node = Folder.get_by_id(node.parent_id)
+			else:
+				folder = Folder.select().where(Folder.id==node.parent_id and Folder.name == folder).get()
+				if folder is not None:
+					node = folder
+				else:
+					return None
+		return node
+
+	def cd(self, path):
+		nn = self._get_folder_record(path)
+		if nn is not None:
+			self.current_node = nn
+			return True
+		return False
+	
+	def _ls(self, folder_id):
+		folders = [
+			f.name for f in Folder.select(Folder.name).\
+				where(Folder.parent_id==self.current_node.id).execure()]
+		files = [
+			f.name for f in File.select(File.name).where(File.parent_id==self.current_node.id).execute()]
+		return folders, files
+
+	def ls(self, path=None):
+		if path is not None:
+			nn = self._get_folder_record(path)
+			if nn is None:
+				return
+		else:
+			nn = self.current_node
+		return self._ls(nn.parent_id)
+
+	def get_record(self, name):
+		folder, file_name = os.path.split()
+		nn = None
+		if folder != "":
+			nn = self._get_folder_record(folder)
+		if nn is None:
+			nn = self.current_node
+		record = File.select().where(File.parent_id==nn.id and File.name==file_name).get()
+		return record
+			
 
 
 try:
@@ -211,46 +312,17 @@ def search_query():
 	logger.info(rpc_client.connect("tcp://search:4242"))
 	result = rpc_client.hello(query)
 	logger.info(result)
+	return result
+
+@app.route('/upload', methods=["POST"])
+def upload():
+	logger.info(request.files)
+	logger.info(request.form)
+	for k,v in request.files.items():
+		logger.info(f'{k}::{v.filename}')
+		logger.info(v.__dir__())
 	return "OK"
 
-
-
-# @app.route('/api/document/<string:index>', methods=['PUT'])
-# def add_document_to_elastic_search(index):
-# 	logger.info(request.json)
-# 	result = es.index(index=index, body=request.json)
-# 	logger.info(result)
-# 	return "OK"
-
-# @app.route('/api/document/<string:index>', methods=['GET'])
-# def get_document_from_elasticsearch(index):
-# 	result = es.search(index = index, body={})
-# 	logger.info(result)
-# 	return "OK"
-
-
-# @app.route('/api/add_img', methods=['POST'])
-# def serve_add_img():
-# 	session_name = request.form['session_name']
-# 	for fname, file in request.files.items():
-# 		xx = file.read()
-# 		md5_val = hashlib.md5(xx).hexdigest()
-# 		app.logger.info(len(xx))
-# 		try:
-# 			result = ImageStorage.create(
-# 				payload=xx, md5=md5_val, session_name=session_name)
-# 			app.logger.info(result)
-# 		except IntegrityError as e:
-# 			psql_db.rollback()
-# 			app.logger.info(e)
-# 	return "OK"
-
-
-# @app.route('/api/image_length')
-# def serve_imageLength():
-# 	length = ImageStorage.select().count()
-# 	app.logger.info(length)
-# 	return dict(length=length)
 
 if __name__ == "__main__":
 	app.run(host='0.0.0.0')

@@ -27,6 +27,7 @@ RUN pip3 config set global.index-url https://mirrors.aliyun.com/pypi/simple/
 
 RUN pip3 install jupyterlab flask peewee psycopg2 flask-restful requests 
 RUN pip3 install elasticsearch selenium BeautifulSoup4 pandas bibtexparser zerorpc
+RUN pip3 install pytest
 
 RUN useradd -m -U d
 USER d

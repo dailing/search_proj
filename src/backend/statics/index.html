@@ -74,49 +74,41 @@
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">title</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="title" aria-label="Username" aria-describedby="basic-addon1" />
+                    <input type="text" class="form-control" placeholder="title" v-model="paper_info.title" />
+                    <div class="input-group-prepend">
+                        <span class="input-group-text btn" v-on:click="search">search</span>
+                    </div>
                 </div>
                 <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">author</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="author" aria-label="Username" aria-describedby="basic-addon1" />
+                    <input type="text" class="form-control" placeholder="author" v-model="paper_info.author" />
                 </div>
                 <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">journal</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="journal" aria-label="Username" aria-describedby="basic-addon1" />
+                    <input type="text" class="form-control" placeholder="journal" v-model="paper_info.journal" />
                 </div>
                 <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">field</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="field" aria-label="Username" aria-describedby="basic-addon1" />
+                    <input type="text" class="form-control" placeholder="field" v-model="paper_info.field" />
                 </div>
                 <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">institute</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="institute" aria-label="Username" aria-describedby="basic-addon1" />
+                    <input type="text" class="form-control" placeholder="institute" v-model="paper_info.institute" />
                 </div>
                 <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text">abstract</span>
                     </div>
-                    <textarea class="form-control" aria-label="With textarea"></textarea>
+                    <textarea class="form-control" aria-label="With textarea" v-model="paper_info.abstract"></textarea>
                 </div>
-
-                <div class="input-group mb-3">
-                    <div class="input-group-prepend">
-                        <span class="input-group-text" id="inputGroupFileAddon01">Upload</span>
-                    </div>
-                    <div class="custom-file">
-                        <input type="file" class="custom-file-input" id="inputGroupFile01" aria-describedby="inputGroupFileAddon01">
-                        <label class="custom-file-label" for="inputGroupFile01">Choose file</label>
-                    </div>
-                </div>
-
                 <div class="input-group mb-3">
                     <input type="button" class="btn btn-secondary" value="upload">
                 </div>
@@ -136,6 +128,22 @@
         </form>
     </div>
 
+    <div id="container">
+        <input type="file" id="file_input" name="file_input_folder[]" multiple webkitdirectory="" mozdirectory="true" directory="" />
+    </div>
+    <!-- <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+    <script type="text/javascript">
+        var printFiles = function(event) {
+            var files = event.currentTarget.files;
+            for (var indx in files) {
+                var curFile = files[indx];
+                console.info(event)
+            }
+            console.log(files);
+        };
+        $('#file_input').change(printFiles);
+    </script> -->
+
 
     <script src="vue.js"></script>
     <script src="vue-resource@1.5.1"></script>
@@ -146,6 +154,20 @@
     <script src="bootstrap.min.js"></script>
     <script src="index.js"></script>
     <script src="dropzone.js"></script>
+    <script>
+        Dropzone.options.dd = {
+            init: function() {
+                this.on("sending", function(file, xhr, data) {
+                    if (file.fullPath) {
+                        console.info(file.fullPath);
+                        console.info(data);
+                        data.append("fullPath", file.fullPath);
+                    }
+                });
+            }
+        };
+    </script>
+
 </body>
 
-</html>
+</html>;

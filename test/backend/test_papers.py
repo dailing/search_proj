@@ -40,7 +40,8 @@ def test_put_get_record():
 
 def test_paper_list():
     result = get(f'{base_url}/api/list/paper').json()
-    assert isinstance(result, list)
+    assert isinstance(result, dict)
+    assert result["num_items"] == len(result['items'])
 
 if __name__ == "__main__":
     test_put_get_record()

@@ -1,2 +1,7 @@
 db_storage
 .vscode
+__pycache__
+.ipynb
+.log
+*.ipynb
+*.log

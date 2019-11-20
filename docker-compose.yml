@@ -13,6 +13,24 @@ services:
     ports:
       - 25088:5000
 
+  search:
+    build: docker/backend
+    volumes:
+      - ./src/xueshu_searcher:/workspace
+    command: "python server.py"
+    environment: {}
+    ports: []
+
+  notebook:
+    build: docker/backend
+    volumes:
+      - ./src/backend:/workspace
+    # command: "python main.py"
+    command: "jupyter lab --no-browser --bind=0.0.0.0"
+    environment: {}
+    ports:
+      - 25099:8888
+
   db:
     image: "postgres"
     environment:
@@ -24,6 +42,32 @@ services:
     ports:
       - "25068:5432"
 
+  # selenium-hub:
+  #   image: selenium/hub:3.141.59-xenon
+  #   container_name: selenium-hub
+  #   ports:
+  #     - "4444:4444"
+  # chrome:
+  #   image: selenium/node-chrome:3.141.59-xenon
+  #   volumes:
+  #     - /dev/shm:/dev/shm
+  #   depends_on:
+  #     - selenium-hub
+  #   environment:
+  #     - HUB_HOST=selenium-hub
+  #     - HUB_PORT=4444
+  # firefox:
+  #   image: selenium/node-firefox:3.141.59-xenon
+  #   volumes:
+  #     - /dev/shm:/dev/shm
+  #   depends_on:
+  #     - selenium-hub
+  #   environment:
+  #     - HUB_HOST=selenium-hub
+  #     - HUB_PORT=4444
+
+
+  
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2
     container_name: es01

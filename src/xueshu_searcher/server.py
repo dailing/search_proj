@@ -4,6 +4,10 @@ from selenium.common.exceptions import NoSuchElementException
 import bibtexparser
 import zerorpc
 import requests
+from util.logs import get_logger
+
+
+logger = get_logger('search')
 
 
 def parse_bib(text):
@@ -41,9 +45,11 @@ class HelloRPC(object):
         chrome_options.add_argument('--no-sandbox')
         chrome_options.add_argument('--disable-dev-shm-usage')
         self.driver = webdriver.Chrome(options=chrome_options)
+        logger.info('starting searvice...')
     
     def hello(self, query):
         # wait = WebDriverWait(self.driver, 10)
+        logger.info(f'query {query}')
         self.driver.get(f"http://xueshu.baidu.com/s?wd={query}")
         try:
             xx = self.driver.find_element_by_id("1")

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
@@ -7,136 +8,144 @@
     <title>F</title>
 
     <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="index.css">
 
 </head>
+
 <body>
 
 
-<div id="app">
-    
-    <hr>
+    <div id="app">
 
-    <div class="container">
+        <hr>
+
+        <div class="container">
             <div class="input-group mb-3">
-                <input type="text" 
-                    class="form-control"
-                    placeholder="Recipient's username"
-                    aria-label="Recipient's username"
-                    aria-describedby="basic-addon2">
+                <input type="text" class="form-control" placeholder="Recipient's username" aria-label="Recipient's username" aria-describedby="basic-addon2">
                 <div class="input-group-append">
                     <span class="input-group-text" id="basic-addon2">search</span>
                 </div>
             </div>
-        <div class="row">
-            <table class="table">
-                <tr>
-                    <th>title</th>
-                    <th>author</th>
-                    <th>journal</th>
-                    <th>field</th>
-                    <th>institute</th>
-                    <th>publish_time</th>
-                    <th>funds</th>
-                    <th>publisher</th>
-                    <th>added_time</th>
-                </tr>
-                <tr v-for="(record) in papers">
-                    <td>{{record.title}}</td>
-                    <td>{{record.author}}</td>
-                    <td>{{record.journal}}</td>
-                    <td>{{record.field}}</td>
-                    <td>{{record.institute}}</td>
-                    <td>{{record.publish_time}}</td>
-                    <td>{{record.funds}}</td>
-                    <td>{{record.publisher}}</td>
-                    <td>{{record.added_time}}</td>
-                </tr>
-            </table>
-            <div class="card" style="width: 18rem;" v-for="(record) in images_this_page">
+            <div class="row">
+                <table class="table">
+                    <tr>
+                        <th>title</th>
+                        <th>author</th>
+                        <th>journal</th>
+                        <th>field</th>
+                        <th>institute</th>
+                        <th>publish_time</th>
+                        <th>funds</th>
+                        <th>publisher</th>
+                        <th>added_time</th>
+                    </tr>
+                    <tr v-for="(record) in papers">
+                        <td>{{record.title}}</td>
+                        <td>{{record.author}}</td>
+                        <td>{{record.journal}}</td>
+                        <td>{{record.field}}</td>
+                        <td>{{record.institute}}</td>
+                        <td>{{record.publish_time}}</td>
+                        <td>{{record.funds}}</td>
+                        <td>{{record.publisher}}</td>
+                        <td>{{record.added_time}}</td>
+                    </tr>
+                </table>
+                <div class="card" style="width: 18rem;" v-for="(record) in images_this_page">
+                </div>
             </div>
-        </div>
-        <div>
-            <button  
-                class="btn btn-light"
-                v-on:click="current_page=Math.max(current_page-1,1)">
+            <div>
+                <button class="btn btn-light" v-on:click="current_page=Math.max(current_page-1,1)">
                 prev
             </button>
-            <a><input type="number" v-model='current_page' > /{{num_page}}</a>
-            <button
-                class="btn btn-light"
-                v-on:click="current_page=Math.min(current_page+1,num_page)">
+                <a><input type="number" v-model='current_page'> /{{num_page}}</a>
+                <button class="btn btn-light" v-on:click="current_page=Math.min(current_page+1,num_page)">
                 next
             </button>
+            </div>
         </div>
-    </div>
 
-    <hr>
+        <hr>
 
-    <div class="container">
-        <div class="row">
+        <div class="container">
+            <div class="row">
 
-            <div class="input-group mb-3">
+                <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">title</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="title" aria-label="Username" aria-describedby="basic-addon1"/>
-            </div>
-            <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="title" aria-label="Username" aria-describedby="basic-addon1" />
+                </div>
+                <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">author</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="author" aria-label="Username" aria-describedby="basic-addon1"/>
-            </div>
-            <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="author" aria-label="Username" aria-describedby="basic-addon1" />
+                </div>
+                <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">journal</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="journal" aria-label="Username" aria-describedby="basic-addon1"/>
-            </div>
-            <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="journal" aria-label="Username" aria-describedby="basic-addon1" />
+                </div>
+                <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">field</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="field" aria-label="Username" aria-describedby="basic-addon1"/>
-            </div>
-            <div class="input-group mb-3">
+                    <input type="text" class="form-control" placeholder="field" aria-label="Username" aria-describedby="basic-addon1" />
+                </div>
+                <div class="input-group mb-3">
                     <div class="input-group-prepend">
                         <span class="input-group-text" id="basic-addon1">institute</span>
                     </div>
-                    <input type="text" class="form-control" placeholder="institute" aria-label="Username" aria-describedby="basic-addon1"/>
-            </div>
-            <div class="input-group mb-3">
-                <div class="input-group-prepend">
-                    <span class="input-group-text">abstract</span>
+                    <input type="text" class="form-control" placeholder="institute" aria-label="Username" aria-describedby="basic-addon1" />
                 </div>
-                <textarea class="form-control" aria-label="With textarea"></textarea>
-            </div>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text">abstract</span>
+                    </div>
+                    <textarea class="form-control" aria-label="With textarea"></textarea>
+                </div>
 
-            <div class="input-group mb-3">
-                <div class="input-group-prepend">
-                    <span class="input-group-text" id="inputGroupFileAddon01">Upload</span>
+                <div class="input-group mb-3">
+                    <div class="input-group-prepend">
+                        <span class="input-group-text" id="inputGroupFileAddon01">Upload</span>
+                    </div>
+                    <div class="custom-file">
+                        <input type="file" class="custom-file-input" id="inputGroupFile01" aria-describedby="inputGroupFileAddon01">
+                        <label class="custom-file-label" for="inputGroupFile01">Choose file</label>
+                    </div>
                 </div>
-                <div class="custom-file">
-                    <input type="file" class="custom-file-input" id="inputGroupFile01" aria-describedby="inputGroupFileAddon01">
-                    <label class="custom-file-label" for="inputGroupFile01">Choose file</label>
-                </div>
-            </div>
 
-            <div class="input-group mb-3">
-                <input type="button" class="btn btn-secondary" value="upload">
+                <div class="input-group mb-3">
+                    <input type="button" class="btn btn-secondary" value="upload">
+                </div>
             </div>
         </div>
+
     </div>
-</div>
+
+    <div id="dropzone">
+        <form action="/upload" class="dropzone needsclick dz-clickable" id="dd">
+
+            <div class="dz-message needsclick">
+                Drop files here or click to upload.<br>
+                <span class="note needsclick">(This is just a demo dropzone. Selected files are <strong>not</strong> actually uploaded.)</span>
+            </div>
+
+        </form>
+    </div>
 
 
-<script src="vue.js"></script>
-<script src="vue-resource@1.5.1"></script>
-<script src="vue-async-computed"></script>
-<script src="jquery-3.3.1.slim.min.js"></script>
-<script src="popper.min.js"></script>
-<script src="popper.min.js"></script>
-<script src="bootstrap.min.js"></script>
-<script src="index.js"></script>
+    <script src="vue.js"></script>
+    <script src="vue-resource@1.5.1"></script>
+    <script src="vue-async-computed"></script>
+    <script src="jquery-3.3.1.slim.min.js"></script>
+    <script src="popper.min.js"></script>
+    <script src="popper.min.js"></script>
+    <script src="bootstrap.min.js"></script>
+    <script src="index.js"></script>
+    <script src="dropzone.js"></script>
 </body>
+
 </html>

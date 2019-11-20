@@ -5,7 +5,9 @@ services:
     build: docker/backend
     volumes:
       - ./src/backend:/workspace
-    # command: "python main.py"
+    depends_on:
+      - search
+      - db
     command: "flask run -h 0.0.0.0"
     environment:
        FLASK_APP: main.py

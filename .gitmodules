@@ -1,3 +1,6 @@
 [submodule "src/backend/util"]
 	path = src/backend/util
 	url = git@github.com:dailing/util.git
+[submodule "src/xueshu_searcher/util"]
+	path = src/xueshu_searcher/util
+	url = git@github.com:dailing/util.git

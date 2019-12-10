@@ -1,12 +1,15 @@
-from flask import Flask, request, make_response, redirect, abort, Response
+from flask import Flask, request, make_response, redirect, abort, Response, send_file
+from io import BytesIO
 from flask_restful import Resource, Api
+import shutil
 import os
+import stat
 from util.logs import get_logger
 import json
 import hashlib
 from peewee import PostgresqlDatabase, Model, TextField,\
 	BlobField, DateTimeField, IntegerField, IntegrityError,\
-	DatabaseProxy, DateField, BooleanField
+	DatabaseProxy, DateField, BooleanField, TimestampField
 import playhouse.db_url
 from playhouse.postgres_ext import JSONField, ArrayField
 import datetime
@@ -162,6 +165,7 @@ class ListApi(Resource):
 			item_per_page=n_item_per_page,
 			items=list(self.model.select().paginate(page, n_item_per_page).dicts()))
 
+
 class PaperRecord(BaseModel):
 	title = TextField()
 	author = ArrayField(TextField, null=True)
@@ -182,34 +186,177 @@ class PaperRecord(BaseModel):
 
 class Folder(BaseModel):
 	name = TextField()
-	created = DateTimeField(default=datetime.datetime.now)
 	parent_id = IntegerField(default=0)
-	modified = DateTimeField(default=datetime.datetime.now)
-	
+	created = TimestampField(default=datetime.datetime.now, utc=True)
+	modified = TimestampField(default=datetime.datetime.now, utc=True)
+	payload = BlobField(null=True)
+	md5 = TextField(null=True)
+	readable = BooleanField(default=True)
+	writable = BooleanField(default=True)
+	isDir = BooleanField()
+	size = IntegerField(default=0)
+
 	def save(self, *args, **kwargs):
 		self.modified = datetime.datetime.now()
+		if 'only' in kwargs:
+			kwargs['only'] = [k for k in kwargs['only']] + ['modified']
 		return super(Folder, self).save(*args, **kwargs)
-
-
-class File(BaseModel):
-	name = TextField()
-	created = DateTimeField()
-	payload = BlobField()
-	md5 = TextField()
-	parent_id = IntegerField()
-	modified = DateTimeField(default=datetime.datetime.now)
 	
-	def save(self, *args, **kwargs):
-		self.modified = datetime.datetime.now()
-		return super(File, self).save(*args, **kwargs)
+	class Meta:
+		indexes = (
+			# create a unique constraint
+			(('parent_id', 'name',), True),
+		)
+
+
+class FSModelSql():
+
+	@staticmethod
+	def _init_fs():
+		with psql_db.atomic():
+			if Folder.select().where(Folder.parent_id==0).count() < 1:
+				Folder.create(name='/', parent_id=0, isDir=True)
+	
+	@staticmethod
+	def _flush_all():
+		try:
+			psql_db.execute_sql('drop table folder;')
+		except Exception:
+			pass
+		try:
+			psql_db.execute_sql('drop table paperrecord;')
+		except Exception:
+			pass
+		init_db()
+
+	@staticmethod
+	def _root():
+		return Folder.get_by_id(1)
+
+	@staticmethod
+	def _get_record(path):
+		fields = path.split('/')
+		record = FSModelSql._root()
+		for f in fields:
+			if f == '':
+				continue
+			logger.info(f'{record.id},, {f}')
+			record = Folder.get(Folder.parent_id==record.id and Folder.name==f)
+		return record
+
+	@staticmethod
+	def _get_or_create(path):
+		logger.info(f'{path}')
+		path, name = os.path.split(path)
+		logger.info(f'{path, name}')
+		record = FSModelSql._get_record(path)
+		logger.info(record.id)
+		folder, _ = Folder.get_or_create(name=name, parent_id=record.id, isDir=False)
+		return folder
+
+	@staticmethod
+	def get_info(record, path=None):
+		if isinstance(record, str):
+			parent,_ = os.path.split(record)
+			return FSModelSql.get_info(FSModelSql._get_record(record), parent)
+		logger.info(record)
+		return dict(
+			id=os.path.join(path, record.name),
+			type="folder" if record.isDir else 'file',
+			attributes=dict(
+				name=record.name,
+				path=os.path.join(path, record.name),
+				readable=int(record.readable),
+				writable=int(record.writable),
+				created=int(datetime.datetime.timestamp(record.created)),
+				modified=int(datetime.datetime.timestamp(record.modified)),
+				height=0,
+				width=0,
+				size=record.size,
+		))
+
+
+	@staticmethod
+	def _ls(record):
+		result = []
+		logger.info(f'_ls {record}, {type(record)}')
+		for file in Folder.select(
+					Folder.id,
+					Folder.name,
+					Folder.parent_id,
+					Folder.created,
+					Folder.modified,
+					Folder.md5,
+					Folder.readable,
+					Folder.writable,
+					Folder.isDir,
+					Folder.size,
+				).where(Folder.parent_id==record.id).execute():
+			result.append(file)
+			logger.info(file)
+		return result
+
+
+	@staticmethod
+	def ls(path):
+		record = FSModelSql._get_record(path)
+		result = [FSModelSql.get_info(file, path) for file in FSModelSql._ls(record)]
+		return result
+
+	@staticmethod
+	def mkdir(path, name):
+		try:
+			with psql_db.atomic():
+				record = FSModelSql._get_record(path)
+				Folder.create(name=name, parent_id=record.id, isDir=True)
+		except IntegrityError as e:
+			psql_db.rollback()
+			return Exception("Folder exists")
+	
+	@staticmethod
+	def _delete(record):
+		for rec in FSModelSql._ls(record):
+			if rec.isDir:
+				FSModelSql._delete(rec)
+			Folder.delete().where(Folder.parent_id == record.id)
+		record.delete_instance()
+
+	@staticmethod
+	def delete(file):
+		rec = FSModelSql._get_record(file)
+		FSModelSql._delete(rec)
+
+	@staticmethod
+	def read(file):
+		abs_file = FSModelSql._get_record(file)
+		assert not abs_file.isDir
+		return bytes(abs_file.payload)
+
+	@staticmethod
+	def write(file, content):
+		logger.info(content)
+		record = FSModelSql._get_or_create(file)
+		logger.info(record)
+		record.payload = content
+		record.save(only=('payload', ))
+		return record
+
+	@staticmethod
+	def move(source, target):
+		s_record = FSModelSql._get_record(source)
+		t_record = FSModelSql._get_record(target)
+		s_record.parent_id=t_record.id
+		s_record.save(only=('parent_id', ))
+		_, fname = os.path.split(source)
+		return FSModelSql.get_info(FSModelSql._get_record(os.path.join(target, fname)), target)
 
 
 class FSModel():
-
+	@staticmethod
 	def init_fs():
 		if Folder.select().where(Folder.parent_id==0).count() < 1:
 			Folder.create(
-				name=root,
+				name='root',
 				parent_id=0,
 			)
 
@@ -276,15 +423,6 @@ class FSModel():
 		return record
 			
 
-
-try:
-	psql_db.initialize(playhouse.db_url.connect(
-	'postgresql://db_user:123456@db:5432/fuckdb'))
-	psql_db.connect()
-	psql_db.create_tables([PaperRecord])
-except Exception as e:
-	logger.error(e)
-
 try:
 	api.add_resource(
 		CRUD,
@@ -323,6 +461,242 @@ def upload():
 		logger.info(v.__dir__())
 	return "OK"
 
+
+class _FSModelNormalFile():
+	base_path = '/storage'
+
+	@staticmethod
+	def get_path(path):
+		if path.startswith('/'):
+			path = path[1:]
+		return os.path.join(FSModelNormalFile.base_path, path)
+
+	@staticmethod
+	def ls(path):
+		result = []
+		logger.info(FSModelNormalFile.get_path(path))
+		for file in os.listdir(FSModelNormalFile.get_path(path)):
+			logger.info(file)
+			result.append(FSModelNormalFile.get_info(os.path.join(path, file)))
+		result = dict(data=result)
+		logger.info(result)
+		return result
+
+	@staticmethod
+	def get_info(path):
+		abs_path = FSModelNormalFile.get_path(path)
+		fstat = os.stat(abs_path)
+		mode = fstat.st_mode
+		_, name = os.path.split(path)
+		logger.info(fstat)
+		return dict(
+			id=os.path.join(path, path),
+			type="folder" if stat.S_ISDIR(mode) else 'file',
+			attributes=dict(
+				name=name,
+				path=abs_path,
+				readable=int((stat.S_IREAD & mode) > 0),
+				writable=int((stat.S_IWRITE & mode) > 0),
+				created=int(fstat.st_ctime),
+				modified=int(fstat.st_mtime),
+				height=0,
+				width=0,
+				size=fstat.st_size
+		))
+
+	@staticmethod
+	def mkdir(path, name):
+		path = FSModelNormalFile.get_path(path)
+		if not os.path.isdir(path):
+			return False
+		os.mkdir(os.path.join(path, name))
+		return True
+	
+	@staticmethod
+	def _delete(abs_file):
+		if os.path.isdir(abs_file):
+			for dirpath, dirnames, filenames in os.walk(abs_file):
+				for dirname in dirnames:
+					pp = os.path.join(dirpath, dirname)
+					FSModelNormalFile._delete(pp)
+					logger.info(f'deleting {pp}')
+					os.rmdir(pp)
+				for filename in filenames:
+					pp = os.path.join(dirpath, filename)
+					logger.info(f'deleting {pp}')
+					os.remove(pp)
+			os.rmdir(abs_file)
+		else:
+			os.remove(abs_file)
+
+	@staticmethod
+	def delete(file):
+		abs_file = FSModelNormalFile.get_path(file)
+		FSModelNormalFile._delete(abs_file)
+
+	@staticmethod
+	def read(file):
+		abs_file = FSModelNormalFile.get_path(file)
+		assert os.path.isfile(abs_file)
+		return open(abs_file, 'rb').read()
+
+	@staticmethod
+	def write(file, content):
+		mode = 'wb' if isinstance(content, bytes) else 'w'
+		with open(FSModelNormalFile.get_path(file), mode=mode) as f:
+			f.write(content)
+
+	@staticmethod
+	def move(source, target):
+		shutil.move(FSModelNormalFile.get_path(source), FSModelNormalFile.get_path(target))
+		_, fname = os.path.split(source)
+		return FSModelNormalFile.get_info(os.path.join(target, fname))
+
+
+class FileManagerApi():
+	_model = FSModelSql
+	@staticmethod
+	@response_json
+	def seek_folder():
+		# TODO implement this
+		path = request.args['path']
+		keyword = request.args['string']
+		# os.walk()
+		pass
+
+	@staticmethod
+	@response_json
+	def move():
+		source = request.args['old']
+		target = request.args['new']
+		return dict(data=FileManagerApi._model.move(source, target))
+
+	@staticmethod
+	@response_json
+	def getimage():
+		# path = request.args['path']
+		return FileManagerApi.download()
+	
+	@staticmethod
+	# @response_json
+	def download():
+		print(request.cookies)
+		logger.info(request.is_xhr)
+		path = request.args['path']
+		if request.is_xhr:
+			return dict(data=FileManagerApi._model.get_info(path))
+		else:
+			ff = BytesIO(FileManagerApi._model.read(path))
+			return send_file(ff, as_attachment=True, attachment_filename=path)
+
+
+	@staticmethod
+	@response_json
+	def readfile():
+		path = request.args['path']
+		return FileManagerApi._model.read(path)
+
+	@staticmethod
+	@response_json
+	def delete():
+		path = request.args['path']
+		resp = dict(data=FileManagerApi._model.get_info(path))
+		FileManagerApi._model.delete(path)
+		return resp
+
+	@staticmethod
+	@response_json
+	def addfolder():
+		path = request.args['path']
+		folder = request.args['name']
+		FileManagerApi._model.mkdir(path, folder)
+		return dict(data=FileManagerApi._model.get_info(os.path.join(path, folder), path))
+
+
+	@staticmethod
+	@response_json
+	def readfolder():
+		path = request.args['path']
+		return dict(data=FileManagerApi._model.ls(path))
+
+	@staticmethod
+	@response_json
+	def getinfo():
+		path = request.args['path']
+		return FileManagerApi._model.get_info(path)
+
+	@staticmethod
+	@response_json
+	def initiate():
+		resp = {
+			"data": {
+				"id": "/",
+				"type": "initiate",
+				"attributes": {
+					"config": {
+						"security": {
+							"readOnly": False,
+							"extensions": {
+								"policy": "DISALLOW_LIST",
+								"ignoreCase": False,
+								"restrictions": []
+							}
+						},
+					}
+				}
+			}
+		}
+		return resp
+
+
+@app.route('/filemanager/api', methods=["POST"])
+def filemanager_savefile():
+	if request.form['mode'] == 'savefile':
+		path = request.form['path']
+		logger.info(request.form['content'])
+		FileManagerApi._model.write(path, request.form['content'].encode('utf-8'))
+		return dict(data=FileManagerApi._model.get_info(path))
+	elif request.form['mode'] == 'upload':
+		path = request.form['path']
+		logger.info(request.files)
+		result = []
+		for f in request.files.getlist('files'):
+			file = os.path.join(path, f.filename)
+			logger.info(f.__dict__)
+			FileManagerApi._model.write(file, f.stream.read())
+			result.append(FileManagerApi._model.get_info(file))
+		return dict(data=result)
+
+
+@app.route('/filemanager/api')
+def filemanager_handler():
+	logger.info(request.args)
+	logger.info(request.data)
+	handle_func = dict(
+		initiate=FileManagerApi.initiate,
+		readfolder=FileManagerApi.readfolder,
+		getinfo=FileManagerApi.getinfo,
+		addfolder=FileManagerApi.addfolder,
+		delete=FileManagerApi.delete,
+		readfile=FileManagerApi.readfile,
+		download=FileManagerApi.download,
+		getimage=FileManagerApi.getimage,
+		move=FileManagerApi.move,
+	)
+	return handle_func[request.args['mode']]()
+
+
+def init_db():
+	try:
+		psql_db.initialize(playhouse.db_url.connect(
+		os.environ['DB_URL']))
+		psql_db.connect()
+		psql_db.create_tables([PaperRecord, Folder])
+		FileManagerApi._model._init_fs()
+	except Exception as e:
+		logger.error(e)
+
+init_db()
 
 if __name__ == "__main__":
 	app.run(host='0.0.0.0')

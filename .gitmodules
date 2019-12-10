@@ -4,3 +4,6 @@
 [submodule "src/xueshu_searcher/util"]
 	path = src/xueshu_searcher/util
 	url = git@github.com:dailing/util.git
+[submodule "src/backend/statics/RichFilemanager"]
+	path = src/backend/statics/RichFilemanager
+	url = git@github.com:dailing/RichFilemanager.git

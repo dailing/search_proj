@@ -10,8 +10,9 @@ services:
       - db
     command: "flask run -h 0.0.0.0"
     environment:
-       FLASK_APP: main.py
-       FLASK_ENV: development
+      DB_URL: "postgresql://db_user:123456@db:5432/fuckdb"
+      FLASK_APP: main.py
+      FLASK_ENV: development
     ports:
       - 25088:5000
 
@@ -19,13 +20,37 @@ services:
   test:
     build: docker/backend
     volumes:
-      - ./test:/workspace
+      - ./test:/workspace/test
+      - ./src:/workspace/src
     depends_on:
-      - search
-      - db
-    command: "pytest"
+      - test_db
+      - test_backend
+    command: "pytest --tb=native --maxfail=1 /workspace/test"
     environment:
-       url: http://backend:5000
+      DB_URL: "postgresql://db_user:123456@test_db:5432/fuckdb"
+      url: http://test_backend:5000
+      PYTHONPATH: "/workspace/src/backend:/workspace/test"
+
+  test_db:
+    image: "postgres"
+    environment:
+      POSTGRES_USER: "db_user"
+      POSTGRES_PASSWORD: "123456"
+      POSTGRES_DB: "fuckdb"
+
+  test_backend:
+    build: docker/backend
+    volumes:
+      - ./src/backend:/workspace:ro
+      - /tmp/tmp_storage:/storage
+    depends_on:
+      - test_db
+    command: "flask run -h 0.0.0.0"
+    environment:
+      DB_URL: "postgresql://db_user:123456@test_db:5432/fuckdb"
+      FLASK_APP: main.py
+      FLASK_ENV: development
+
 
   search:
     build: docker/backend
@@ -52,35 +77,9 @@ services:
       POSTGRES_PASSWORD: "123456"
       POSTGRES_DB: "fuckdb"
     volumes:
-      - ./datadir:/var/lib/postgresql/data
+      - ./db_storage/db:/var/lib/postgresql/data
     ports:
       - "25068:5432"
-
-  # selenium-hub:
-  #   image: selenium/hub:3.141.59-xenon
-  #   container_name: selenium-hub
-  #   ports:
-  #     - "4444:4444"
-  # chrome:
-  #   image: selenium/node-chrome:3.141.59-xenon
-  #   volumes:
-  #     - /dev/shm:/dev/shm
-  #   depends_on:
-  #     - selenium-hub
-  #   environment:
-  #     - HUB_HOST=selenium-hub
-  #     - HUB_PORT=4444
-  # firefox:
-  #   image: selenium/node-firefox:3.141.59-xenon
-  #   volumes:
-  #     - /dev/shm:/dev/shm
-  #   depends_on:
-  #     - selenium-hub
-  #   environment:
-  #     - HUB_HOST=selenium-hub
-  #     - HUB_PORT=4444
-
-
   
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.4.2

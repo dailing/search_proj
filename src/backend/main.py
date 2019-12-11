@@ -9,7 +9,8 @@ import json
 import hashlib
 from peewee import PostgresqlDatabase, Model, TextField,\
 	BlobField, DateTimeField, IntegerField, IntegrityError,\
-	DatabaseProxy, DateField, BooleanField, TimestampField
+	DatabaseProxy, DateField, BooleanField, TimestampField,\
+	ForeignKeyField
 import playhouse.db_url
 from playhouse.postgres_ext import JSONField, ArrayField
 import datetime
@@ -167,17 +168,19 @@ class ListApi(Resource):
 
 
 class PaperRecord(BaseModel):
-	title = TextField()
+	title = TextField(null=True)
 	author = ArrayField(TextField, null=True)
-	journal = TextField()
-	field = TextField()
-	institute = TextField()
-	publish_time = DateField()
+	journal = TextField(null=True)
+	field = TextField(null=True)
+	institute = TextField(null=True)
+	publish_time = DateField(null=True)
 	funds = ArrayField(TextField)
-	publisher = TextField()
+	publisher = TextField(null=True)
 	checked = BooleanField(default=False)
 	created = DateTimeField(default=datetime.datetime.now)
 	modified = DateTimeField(default=datetime.datetime.now)
+	abstract = TextField(null=True)
+	full_text = TextField(null=True)
 	
 	def save(self, *args, **kwargs):
 		self.modified = datetime.datetime.now()
@@ -195,6 +198,7 @@ class Folder(BaseModel):
 	writable = BooleanField(default=True)
 	isDir = BooleanField()
 	size = IntegerField(default=0)
+	meta_info = ForeignKeyField(PaperRecord, null=True)
 
 	def save(self, *args, **kwargs):
 		self.modified = datetime.datetime.now()
@@ -273,6 +277,8 @@ class FSModelSql():
 				height=0,
 				width=0,
 				size=record.size,
+				meta=dict(a=1,b=0)
+				# meta=model_to_dict(record.meta_info) if record.meta_info else None
 		))
 
 
@@ -338,7 +344,8 @@ class FSModelSql():
 		record = FSModelSql._get_or_create(file)
 		logger.info(record)
 		record.payload = content
-		record.save(only=('payload', ))
+		record.size = len(content)
+		record.save(only=('payload', 'size'))
 		return record
 
 	@staticmethod
@@ -349,79 +356,6 @@ class FSModelSql():
 		s_record.save(only=('parent_id', ))
 		_, fname = os.path.split(source)
 		return FSModelSql.get_info(FSModelSql._get_record(os.path.join(target, fname)), target)
-
-
-class FSModel():
-	@staticmethod
-	def init_fs():
-		if Folder.select().where(Folder.parent_id==0).count() < 1:
-			Folder.create(
-				name='root',
-				parent_id=0,
-			)
-
-	def __init__(self, path="/"):
-		self.current_path = path
-		self.current_node = self._root()
-		self.cd(path)
-
-	def _root(self):
-		return Folder.select().where(Folder.parent_id==0).get()
-
-	def _get_folder_record(self, path):
-		node = self.current_node
-		if path.startswith('/'):
-			node = self._root()
-		for f in path.split('/'):
-			if f == ".":
-				pass
-			elif f == '..':
-				if node.parent_id == 0:
-					return None
-				else:
-					node = Folder.get_by_id(node.parent_id)
-			else:
-				folder = Folder.select().where(Folder.id==node.parent_id and Folder.name == folder).get()
-				if folder is not None:
-					node = folder
-				else:
-					return None
-		return node
-
-	def cd(self, path):
-		nn = self._get_folder_record(path)
-		if nn is not None:
-			self.current_node = nn
-			return True
-		return False
-	
-	def _ls(self, folder_id):
-		folders = [
-			f.name for f in Folder.select(Folder.name).\
-				where(Folder.parent_id==self.current_node.id).execure()]
-		files = [
-			f.name for f in File.select(File.name).where(File.parent_id==self.current_node.id).execute()]
-		return folders, files
-
-	def ls(self, path=None):
-		if path is not None:
-			nn = self._get_folder_record(path)
-			if nn is None:
-				return
-		else:
-			nn = self.current_node
-		return self._ls(nn.parent_id)
-
-	def get_record(self, name):
-		folder, file_name = os.path.split()
-		nn = None
-		if folder != "":
-			nn = self._get_folder_record(folder)
-		if nn is None:
-			nn = self.current_node
-		record = File.select().where(File.parent_id==nn.id and File.name==file_name).get()
-		return record
-			
 
 try:
 	api.add_resource(
@@ -441,9 +375,9 @@ except Exception as e:
 def serve_index():
 	return redirect('/static/index.html')
 
-@app.route('/api/search', methods=["POST"])
+@app.route('/api/search', methods=["GET"])
 def search_query():
-	query = request.get_data().decode('utf-8')
+	query = request.args['query']
 	logger.info(query)
 	logger.info(type(query))
 	rpc_client = zerorpc.Client()
@@ -460,97 +394,6 @@ def upload():
 		logger.info(f'{k}::{v.filename}')
 		logger.info(v.__dir__())
 	return "OK"
-
-
-class _FSModelNormalFile():
-	base_path = '/storage'
-
-	@staticmethod
-	def get_path(path):
-		if path.startswith('/'):
-			path = path[1:]
-		return os.path.join(FSModelNormalFile.base_path, path)
-
-	@staticmethod
-	def ls(path):
-		result = []
-		logger.info(FSModelNormalFile.get_path(path))
-		for file in os.listdir(FSModelNormalFile.get_path(path)):
-			logger.info(file)
-			result.append(FSModelNormalFile.get_info(os.path.join(path, file)))
-		result = dict(data=result)
-		logger.info(result)
-		return result
-
-	@staticmethod
-	def get_info(path):
-		abs_path = FSModelNormalFile.get_path(path)
-		fstat = os.stat(abs_path)
-		mode = fstat.st_mode
-		_, name = os.path.split(path)
-		logger.info(fstat)
-		return dict(
-			id=os.path.join(path, path),
-			type="folder" if stat.S_ISDIR(mode) else 'file',
-			attributes=dict(
-				name=name,
-				path=abs_path,
-				readable=int((stat.S_IREAD & mode) > 0),
-				writable=int((stat.S_IWRITE & mode) > 0),
-				created=int(fstat.st_ctime),
-				modified=int(fstat.st_mtime),
-				height=0,
-				width=0,
-				size=fstat.st_size
-		))
-
-	@staticmethod
-	def mkdir(path, name):
-		path = FSModelNormalFile.get_path(path)
-		if not os.path.isdir(path):
-			return False
-		os.mkdir(os.path.join(path, name))
-		return True
-	
-	@staticmethod
-	def _delete(abs_file):
-		if os.path.isdir(abs_file):
-			for dirpath, dirnames, filenames in os.walk(abs_file):
-				for dirname in dirnames:
-					pp = os.path.join(dirpath, dirname)
-					FSModelNormalFile._delete(pp)
-					logger.info(f'deleting {pp}')
-					os.rmdir(pp)
-				for filename in filenames:
-					pp = os.path.join(dirpath, filename)
-					logger.info(f'deleting {pp}')
-					os.remove(pp)
-			os.rmdir(abs_file)
-		else:
-			os.remove(abs_file)
-
-	@staticmethod
-	def delete(file):
-		abs_file = FSModelNormalFile.get_path(file)
-		FSModelNormalFile._delete(abs_file)
-
-	@staticmethod
-	def read(file):
-		abs_file = FSModelNormalFile.get_path(file)
-		assert os.path.isfile(abs_file)
-		return open(abs_file, 'rb').read()
-
-	@staticmethod
-	def write(file, content):
-		mode = 'wb' if isinstance(content, bytes) else 'w'
-		with open(FSModelNormalFile.get_path(file), mode=mode) as f:
-			f.write(content)
-
-	@staticmethod
-	def move(source, target):
-		shutil.move(FSModelNormalFile.get_path(source), FSModelNormalFile.get_path(target))
-		_, fname = os.path.split(source)
-		return FSModelNormalFile.get_info(os.path.join(target, fname))
 
 
 class FileManagerApi():
@@ -687,14 +530,20 @@ def filemanager_handler():
 
 
 def init_db():
-	try:
-		psql_db.initialize(playhouse.db_url.connect(
-		os.environ['DB_URL']))
-		psql_db.connect()
-		psql_db.create_tables([PaperRecord, Folder])
-		FileManagerApi._model._init_fs()
-	except Exception as e:
-		logger.error(e)
+	for i in range(3):
+		logger.info(f'Try to connect to db, {i+1} of 3 ...')
+		try:
+			psql_db.initialize(playhouse.db_url.connect(
+			os.environ['DB_URL']))
+			psql_db.connect()
+			psql_db.create_tables([PaperRecord, Folder])
+			FileManagerApi._model._init_fs()
+			logger.info('we are good now ...')
+			return
+		except Exception as e:
+			pass
+			# logger.error(e)
+		time.sleep(3)
 
 init_db()
 

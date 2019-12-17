@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:v-bind="http://www.w3.org/1999/xhtml" xmlns:v-on="http://www.w3.org/1999/xhtml">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <title>F</title>
+
+  <link rel="stylesheet" href="bootstrap.min.css">
+  <link rel="stylesheet" href="index.css">
+
+</head>
+
+<body>
+
+  <div id="app">
+
+    <div class="container">
+      <div class='row'>
+        <table class="table">
+          <tr>
+            <td>file name</td>
+            <td> {{info.name}}</td>
+          </tr>
+          <tr>
+            <td>created</td>
+            <td> {{info.created}} </td>
+          </tr>
+          <tr>
+            <td>modified</td>
+            <td> {{info.modified}} </td>
+          </tr>
+          <tr>
+            <td>file size</td>
+            <td>{{info.size| prettyBytes}}</td>
+          </tr>
+          <tr>
+            <td>title</td>
+            <td> <input v-model='info.meta_info.title'> </td>
+          </tr>
+          <tr>
+            <td>author</td>
+            <td> <input v-model='info.meta_info.author'> </td>
+          </tr>
+          <tr>
+            <td>journal</td>
+            <td> <input v-model='info.meta_info.journal'> </td>
+          </tr>
+          <tr>
+            <td>field</td>
+            <td> <input v-model='info.meta_info.field'> </td>
+          </tr>
+          <tr>
+            <td>institute</td>
+            <td> <input v-model='info.meta_info.institute'> </td>
+          </tr>
+          <tr>
+            <td>publish_time</td>
+            <td> <input v-model='info.meta_info.publish_time'> </td>
+          </tr>
+          <tr>
+            <td>funds</td>
+            <td> <input v-model='info.meta_info.funds'> </td>
+          </tr>
+          <tr>
+            <td>publisher</td>
+            <td> <input v-model='info.meta_info.publisher'> </td>
+          </tr>
+          <tr>
+            <td>checked</td>
+            <td> <input v-model='info.meta_info.checked'> </td>
+          </tr>
+          <tr>
+            <td>abstract</td>
+            <td> <textarea v-model='info.meta_info.abstract'></textarea> </td>
+          </tr>
+          <tr>
+            <td>full_text</td>
+            <td> <input v-model='info.meta_info.full_text'> </td>
+          </tr>
+  
+  
+        </table>
+  
+        <!-- {
+      "id": 4,
+      "name": "docker-compose.yml",
+      "parent_id": 3,
+      "created": "2019/12/17 15:41:33",
+      "modified": "2019/12/17 15:41:34",
+      "payload": "Binary Value",
+      "md5": "c69884a2c2469f892175c2cd38f946e0",
+      "readable": true,
+      "writable": true,
+      "isDir": false,
+      "size": 2563,
+      "meta_info": {
+        "id": 1,
+        "title": null,
+        "author": null,
+        "journal": null,
+        "field": null,
+        "institute": null,
+        "publish_time": null,
+        "funds": null,
+        "publisher": null,
+        "checked": false,
+        "created": "2019/12/17 15:41:33",
+        "modified": "2019/12/17 15:41:33",
+        "abstract": null,
+        "full_text": null
+      }
+    } -->
+        <input type="button" class="btn btn-primary" value="search" 
+          v-on:click='search_xueshu(info.meta_info.title)'>
+        <input type="button" class="btn btn-primary" value="save"
+          v-on:click='save()'>
+        <input type="button" class="btn btn-primary" value="cancel">
+      </div>
+    </div>
+  </div> <!-- app -->
+  <script src="vue.js"></script>
+  <script src="vue-resource@1.5.1"></script>
+  <script src="vue-async-computed"></script>
+  <script src="jquery-3.3.1.slim.min.js"></script>
+  <script src="popper.min.js"></script>
+  <script src="popper.min.js"></script>
+  <script src="bootstrap.min.js"></script>
+  <script src="_edit.js"></script>
+</body>
+
+</html>

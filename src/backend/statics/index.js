@@ -7,6 +7,9 @@ var app = new Vue({
         ctx: null,
         image: null,
 
+        search_text: '',
+        search_result:[],
+
         current_box: -1,
         boxes: [],
         adding_box: false,
@@ -32,34 +35,35 @@ var app = new Vue({
     methods: {
         get_papers: function() {
             Vue.http.get('/api/list/paper', {}).then(response => {
-                console.log(response.data);
                 this.papers = response.data.items
             })
         },
-        remove_selected: function() {
-            console.info('delete box');
-            if (this.selected_box < 0) return;
-            this.boxes.splice(this.selected_box, 1);
-            this.selected_box = Math.min(this.selected_box, this.boxes.length - 1);
+        _format_size: function(size){
+            console.log(size);
+            units = 'BKMGT';
+            cnt = 0;
+            size = parseInt(size);
+            while (size >= 1000){
+                cnt += 1;
+                size /= 1024;
+            }
+            size = Math.round(size * 100) / 100;
+            return size + units[cnt];
         },
-        update_session: function() {
+        search_doc: function() {
+            console.log('search doc:' + this.search_text);
+            cfg = {
+                params: {
+                    kw:this.search_text,
+                    mode:'search'
+                }
+            }
             Vue.http.get(
-                '/api/sessions').
-            then(response => {
-                console.log(response.data);
-                result = response.data;
-                this.sessions = response.data.sessions;
-            }, response => {
-                console.log(response);
-            })
-        },
-        add_session: function() {
-            console.log('adding fuck session');
-            Vue.http.post('/api/session', {
-                session_name: this.new_session_name,
-            }).then(response => {
-                console.log(response.data);
-                this.update_session();
+                '/filemanager/api', cfg
+            ).then(response => {
+                data = response.data;
+                console.log(data);
+                this.search_result = data;
             })
         },
         search: function() {
@@ -294,7 +298,7 @@ var app = new Vue({
         //     app._keyboard_event(event);
         // }, false);
         // this.update_session();
-        this.get_papers();
+        // this.get_papers();
         console.log('init!')
     }
 });

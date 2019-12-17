@@ -4504,29 +4504,32 @@
                     break;
 
                 case 'search':
-                    var result = $.ajax({
-                        type: 'GET',
-                        url: "/api/search?query=" + targetObject.attributes.name.split('.')[0],
-                        dataType: 'json',
-                        cache: false,
-                        error: function(response) {
-                            fm.error('Given config file (' + url + ') does not exist!');
-                            console.log("FUCK this query!");
-                        }
-                    }).done(function (resp){
-                        original_info = fmModel.previewModel.cdo();
-                        console.log(original_info)
-                        tmpres = []
-                        for (var k in resp){
-                            tmpres.push({
-                                key:k,
-                                value:resp[k],
-                            })
-                        }
-                        original_info.meta = tmpres;
-                        console.log(fmModel.previewModel.cdo(original_info));
-                        console.log(fmModel);
-                    });
+                    console.log("FUCK"); 
+                    window.open( 
+                        "/static/_edit.html?path="+targetObject.attributes.dbid, "_blank"); 
+                    // var result = $.ajax({
+                    //     type: 'GET',
+                    //     url: "/api/search?query=" + targetObject.attributes.name.split('.')[0],
+                    //     dataType: 'json',
+                    //     cache: false,
+                    //     error: function(response) {
+                    //         fm.error('Given config file (' + url + ') does not exist!');
+                    //         console.log("FUCK this query!");
+                    //     }
+                    // }).done(function (resp){
+                    //     original_info = fmModel.previewModel.cdo();
+                    //     console.log(original_info)
+                    //     tmpres = []
+                    //     for (var k in resp){
+                    //         tmpres.push({
+                    //             key:k,
+                    //             value:resp[k],
+                    //         })
+                    //     }
+                    //     original_info.meta = tmpres;
+                    //     console.log(fmModel.previewModel.cdo(original_info));
+                    //     console.log(fmModel);
+                    // });
                     
                     break;
             }

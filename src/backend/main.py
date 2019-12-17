@@ -10,18 +10,20 @@ import hashlib
 from peewee import PostgresqlDatabase, Model, TextField,\
 	BlobField, DateTimeField, IntegerField, IntegrityError,\
 	DatabaseProxy, DateField, BooleanField, TimestampField,\
-	ForeignKeyField
+	ForeignKeyField, CharField
 import playhouse.db_url
 from playhouse.postgres_ext import JSONField, ArrayField
 import datetime
 import psycopg2
 import math
 import base64
+from hashlib import md5
 import uuid
 from peewee import fn, DoesNotExist
 import time
 from elasticsearch import Elasticsearch
 from playhouse.shortcuts import model_to_dict
+from playhouse.postgres_ext import Match
 import six
 import math
 import zerorpc
@@ -49,6 +51,8 @@ def json_encoder_default(obj):
 		return obj.strftime(date_format)
 	if isinstance(obj, datetime.time):
 		return obj.strftime(time_format)
+	if isinstance(obj, memoryview):
+		return "Binary Value"
 	raise TypeError("%r is not JSON serializable" % obj)
 
 
@@ -74,44 +78,21 @@ class BaseModel(Model):
 		database = psql_db
 
 
-class RestfulCRUD(type):
-	def __new__(cls, clsname, superclasses, attributedict, model=None):
-		if model is None:
-			raise Exception('Please define model')
-		# superclasses = superclasses + (Resource, )
-		@response_json
-		def get(self, record_id):
-			try:
-				result = model.get_by_id(record_id)
-			except DoesNotExist as e:
-				abort(400, "no such record")
-			return result
-
-		@response_json
-		def put(self, record_id):
-			field = request.json
-			if field is None:
-				abort(400, "request field error")
-			logger.info(field)
-			result = model.update(field).where(model.id == record_id).execute()
-			return "OK"
-
-		attributedict.update(dict(
-			get=get,
-			put=put
-		))
-		return type.__new__(cls, clsname, superclasses, attributedict)
-
 class CRUD(Resource):
-	def __init__(self, model=None):
-		self.model = model
+	_model=None
+	def __init__(self):
 		super(CRUD, self).__init__()
+		self.model = self.__class__._model
+		assert self.model is not None
+		logger.info(self.model)
 
 	@response_json
 	def get(self, record_id):
+		logger.info(record_id)
 		try:
 			result = self.model.get_by_id(record_id)
 		except DoesNotExist as e:
+			logger.info(self.model)
 			abort(400, "no such record")
 		return result
 
@@ -174,7 +155,7 @@ class PaperRecord(BaseModel):
 	field = TextField(null=True)
 	institute = TextField(null=True)
 	publish_time = DateField(null=True)
-	funds = ArrayField(TextField)
+	funds = ArrayField(TextField, null=True)
 	publisher = TextField(null=True)
 	checked = BooleanField(default=False)
 	created = DateTimeField(default=datetime.datetime.now)
@@ -202,8 +183,10 @@ class Folder(BaseModel):
 
 	def save(self, *args, **kwargs):
 		self.modified = datetime.datetime.now()
+		if self.payload is not None:
+			self.md5 = md5(bytes(self.payload)).hexdigest()
 		if 'only' in kwargs:
-			kwargs['only'] = [k for k in kwargs['only']] + ['modified']
+			kwargs['only'] = [k for k in kwargs['only']] + ['modified', 'md5']
 		return super(Folder, self).save(*args, **kwargs)
 	
 	class Meta:
@@ -245,7 +228,10 @@ class FSModelSql():
 			if f == '':
 				continue
 			logger.info(f'{record.id},, {f}')
-			record = Folder.get(Folder.parent_id==record.id and Folder.name==f)
+			try:
+				record = Folder.get(Folder.parent_id==record.id and Folder.name==f)
+			except:
+				return record
 		return record
 
 	@staticmethod
@@ -255,8 +241,23 @@ class FSModelSql():
 		logger.info(f'{path, name}')
 		record = FSModelSql._get_record(path)
 		logger.info(record.id)
-		folder, _ = Folder.get_or_create(name=name, parent_id=record.id, isDir=False)
+		folder, succ = Folder.get_or_create(name=name, parent_id=record.id, isDir=False)
+		if succ:
+			pap = PaperRecord.create()
+			folder.meta_info = pap.id
+			folder.save(only=('meta_info', ))
 		return folder
+
+	@staticmethod
+	def find_path(record):
+		path=""
+		while(record.parent_id != 0):
+			if path != '':
+				path = record.name + '/' + path
+			else:
+				path = record.name
+			record = Folder.get_by_id(record.parent_id)
+		return '/' + path
 
 	@staticmethod
 	def get_info(record, path=None):
@@ -264,6 +265,8 @@ class FSModelSql():
 			parent,_ = os.path.split(record)
 			return FSModelSql.get_info(FSModelSql._get_record(record), parent)
 		logger.info(record)
+		if path is None:
+			path = FSModelSql.find_path(record)
 		return dict(
 			id=os.path.join(path, record.name),
 			type="folder" if record.isDir else 'file',
@@ -277,8 +280,8 @@ class FSModelSql():
 				height=0,
 				width=0,
 				size=record.size,
-				meta=dict(a=1,b=0)
-				# meta=model_to_dict(record.meta_info) if record.meta_info else None
+				meta=model_to_dict(record.meta_info) if record.meta_info else None,
+				dbid=record.id,
 		))
 
 
@@ -340,7 +343,7 @@ class FSModelSql():
 
 	@staticmethod
 	def write(file, content):
-		logger.info(content)
+		# logger.info(content)
 		record = FSModelSql._get_or_create(file)
 		logger.info(record)
 		record.payload = content
@@ -357,16 +360,60 @@ class FSModelSql():
 		_, fname = os.path.split(source)
 		return FSModelSql.get_info(FSModelSql._get_record(os.path.join(target, fname)), target)
 
+	@staticmethod
+	def rename(source, target):
+		logger.info(source)
+		logger.info(target)
+		s_record = FSModelSql._get_record(source)
+		s_record.name = target
+		logger.info(s_record.save(only=['name']))
+		return FSModelSql.get_info(s_record)
+	
+	@staticmethod
+	def search(kw):
+		kw = kw.split()
+		logger.info(f'search {kw}')
+		query_pattern = '%' + "%".join(kw) + '%'
+		logger.info(f'pattern: {query_pattern}')
+		result = Folder.select(
+			Folder.id,
+			Folder.name,
+			Folder.parent_id,
+			Folder.created,
+			Folder.modified,
+			Folder.md5,
+			Folder.readable,
+			Folder.writable,
+			Folder.isDir,
+			Folder.size,
+		).where(Folder.isDir == False and Folder.name % query_pattern).execute()
+		logger.info(result)
+		res_dict = []
+		for i in result:
+			record_dict = model_to_dict(i)
+			record_dict['path'] = FSModelSql.find_path(i)
+			res_dict.append(record_dict)
+		logger.info(res_dict)
+		return res_dict
+
+
+
+class CRUD_paper(CRUD):
+	_model=PaperRecord
+
+class CRUD_folder(CRUD):
+	_model=Folder
+
 try:
 	api.add_resource(
-		CRUD,
+		CRUD_paper,
 		'/api/item/paper/<int:record_id>',
-		'/api/item/paper',
-		resource_class_kwargs=dict(model=PaperRecord))
+		'/api/item/paper')
+
 	api.add_resource(
-		ListApi,
-		'/api/list/paper',
-		resource_class_kwargs=dict(model=PaperRecord))
+		CRUD_folder,
+		'/api/item/file/<int:record_id>',
+		'/api/item/file')
 except Exception as e:
 	logger.error(e)
 
@@ -386,15 +433,6 @@ def search_query():
 	logger.info(result)
 	return result
 
-@app.route('/upload', methods=["POST"])
-def upload():
-	logger.info(request.files)
-	logger.info(request.form)
-	for k,v in request.files.items():
-		logger.info(f'{k}::{v.filename}')
-		logger.info(v.__dir__())
-	return "OK"
-
 
 class FileManagerApi():
 	_model = FSModelSql
@@ -409,10 +447,23 @@ class FileManagerApi():
 
 	@staticmethod
 	@response_json
+	def search():
+		return FileManagerApi._model.search(request.args['kw'])
+
+	@staticmethod
+	@response_json
 	def move():
 		source = request.args['old']
 		target = request.args['new']
 		return dict(data=FileManagerApi._model.move(source, target))
+
+	@staticmethod
+	@response_json
+	def rename():
+		logger.info(request.args)
+		source = request.args['old']
+		target = request.args['new']
+		return dict(data=FileManagerApi._model.rename(source, target))
 
 	@staticmethod
 	@response_json
@@ -525,6 +576,8 @@ def filemanager_handler():
 		download=FileManagerApi.download,
 		getimage=FileManagerApi.getimage,
 		move=FileManagerApi.move,
+		rename=FileManagerApi.rename,
+		search=FileManagerApi.search,
 	)
 	return handle_func[request.args['mode']]()
 
